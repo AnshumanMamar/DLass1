@@ -11,7 +11,8 @@ class_names = ["T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
 
 # Create a grid for plotting
 plt.figure(figsize=(10, 10))
-
+for i in range(5,0,-1):
+    j=1
 # Loop through each classsou
 for i in range(10):
     # Find the index of the first occurrence of the class in the labels
