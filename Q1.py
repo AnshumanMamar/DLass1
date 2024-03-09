@@ -1,6 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from keras.datasets import fashion_mnist 
+import wandb
+
+wandb login a2qs3wd4ef5rg6th7yj8uxw3e4crvbt6
+
+wandb.inti(Project="DL-ASS1", name="question1s")
 
 # Load the Fashion-MNIST dataset
 (x_train, y_train), (x_test,y_test) = fashion_mnist.load_data()
