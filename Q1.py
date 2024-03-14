@@ -1,18 +1,3 @@
-# !pip install wandb
-
-# Import necessary libraries
-import numpy as np
-import matplotlib.pyplot as plt
-from keras.datasets import fashion_mnist
-# import wandb
-from sklearn.model_selection import train_test_split
-import math
-
-
-# !wandb login f63b589f2c31fd6562d752168e172d22870ab562
-
-# wandb.init(project="DL-Assignment-1", name="Q")
-
 # x_train=None
 # x_test=None
 # y_train=None
@@ -35,17 +20,12 @@ x1=x1/255
 
 #create validation dataset
 x1, x_val, y1, y_val = train_test_split(x1,y1, test_size=0.1, random_state=0)
+wandb.init(project="DL-Assignment-1")
 
 class NeuralNetwork:
     def __init__(self):
         self.w,self.b,self.a,self.h,self.wd,self.ad,self.hd,self.bd=[],[],[],[],[],[],[],[]
-        # self.b=[]
-        # self.a=[]
-        # self.h=[]
-        # self.wd=[]
-        # self.ad=[]
-        # self.hd=[]
-        # self.bd=[]
+
 
     #collection of all the activation function implementation
 
@@ -59,6 +39,8 @@ class NeuralNetwork:
         elif act =='tanh':
             s = np.tanh(k)
             return s
+        elif act == 'identity':
+            return k
         elif act =='softmax':
             x=np.copy(k)
             i=0
@@ -80,16 +62,18 @@ class NeuralNetwork:
         if act=='sigmoid':
             s = np.multiply((1/(1+np.exp(-k))),(1-(1/(1+np.exp(-k)))))
             return s
-        elif act=='relu':
+        if act=='relu':
             relu_derivative=0
             relu_derivative=np.maximum(0,k)
             relu_derivative[relu_derivative>0]=1
             return relu_derivative
-        elif act=='tanh':
+        if act=='tanh':
             a=np.exp(k)-np.exp(-k)
             b=np.exp(k)+np.exp(-k)
             x=a/b
             return 1-np.square(x)
+        if act == 'identity':
+            return 1
 
     #collection of all the loss function implementation
 
@@ -136,9 +120,10 @@ class NeuralNetwork:
             i=i+1
         intialization = 0
         all_layer.append(classes)
+        # all_layer = [784,128,,,,,10]
         if start=='random':
             i =0
-            while i<= hidden_layers:
+            while i <= hidden_layers:
                 wt=np.random.uniform(-0.5,0.5,(all_layer[i],all_layer[i+1]))
                 b=np.random.uniform(-0.5,0.5,(1,all_layer[i+1]))
                 self.b.append(b)
@@ -176,6 +161,7 @@ class NeuralNetwork:
             self.h.append(h1)
             self.a.append(a1)
             i=i+1
+        # print(len(self.w)-1,"check")
         a1=np.add(np.matmul(check,self.w[len(self.w)-1]),self.b[len(self.w)-1])
         h1=self.activations('softmax',a1)
         self.h.append(h1)
@@ -269,7 +255,7 @@ class NeuralNetwork:
             if ypred[i]!=y2[i]:
                 n+=+1
             i+=1
-        return ((x2.shape[0]-n)/y2.shape[0])
+        return ((x2.shape[0]-n)/y2.shape[0])*100
 
     #This function is used to make the final prediction on the test data
 
@@ -286,7 +272,7 @@ class NeuralNetwork:
         #confusion matrix
         labels=['T-shirt/top','Trouser','Pullover','Dress','Coat','Sandal','Shirt','Sneaker','Bag','Ankle boot']
         # wandb.log({"my_conf_mat_id" : wandb.plot.confusion_matrix(preds=ypred, y_true=y_test,class_names=labels)})
-        acc=((x2.shape[0]-n)/y2.shape[0])
+        acc=((x2.shape[0]-n)/y2.shape[0])*100
         print("Test Accuracy: "+str(acc))
 
     #Function to create the batches out of the original data
@@ -310,3 +296,174 @@ class NeuralNetwork:
             res.append(group_ans)
             i+=1
         return info,res
+
+    #function to implement one combination of the forward and backward pass
+
+    def onePass(self,x1,y1,classes,lay,rate,act,fn_loss,mom):
+        self.forward_pass(x1 ,act)
+
+        self.backward_pass(self.h[lay-1], y1,x1,classes, act,fn_loss,mom)
+
+    #Function to implement stochastic gradient descent
+
+    def batch(self,x1,y1,classes,lay,epo,count,size,act,fn_ans,mom):
+        info,res=self.createBatches(x1,y1,size)
+
+        i=0
+        while i < epo:
+            h=None
+            j=0
+            s=len(info)
+            while j< s:
+                self.onePass(info[j],res[j],classes,lay,count,act,fn_ans,mom)
+                k=0
+                while k< lay:
+                    q=lay-1-k
+                    self.w[k]-=count*(self.wd[q])
+                    self.b[k]-=count*self.bd[q]
+                    k+=1
+                j+=1
+            i+=1
+            self.forward_pass(x1,act)
+            loss_train=1
+            loss1=self.loss_function(fn_ans,self.h[lay-1],y1,mom)
+            self.forward_pass(x_val,act)
+            loss2=self.loss_function(fn_ans,self.h[lay-1],y_val,mom)
+            acc1=self.accuracy(x1,y1,act)
+            acc2=self.accuracy(x_val,y_val,act)
+            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            wandb.log(
+                    {
+                        'epoch': i,
+                        'training_loss' : round(loss1,2),
+                        'training_accuracy' : round(acc1,2),
+                        'validation_loss' : round(loss2,2),
+                        'validation_accuracy':round(acc2,2)
+                    }
+                )
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Loss : "+str(loss1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validation Loss : "+str(loss2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Accurcy : "+str(acc1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validaion Accuracy: "+str(acc2))
+
+    #Function to implement momentum based gradient descent
+
+    def momentum(self,x1,y1,classes,lay,epo,count,size,eta,act,fn_loss,mom):
+        info,res=self.createBatches(x1,y1,size)
+
+        alpha,beta=[],[]
+        i=0
+        while i< lay:
+            a=np.zeros((self.w[i].shape))
+            b=np.zeros(self.b[i].shape)
+            beta.append(b)
+            alpha.append(a)
+            i+=1
+        i=0
+        while i<epo :
+            j=0
+            while j< len(info):
+                self.onePass(info[j],res[j],classes,lay,count,act,fn_loss,mom)
+                k=0
+                while k < lay:
+                    s=lay-1-k
+                    alpha[k]=(alpha[k]*eta)+self.wd[s]
+                    beta[k]=(beta[k]*eta)+self.bd[s]
+                    self.w[k]-=count*alpha[k]
+                    self.b[k]-=count*beta[k]
+                    k+=1
+                j+=1
+            i+=1
+
+            self.forward_pass(x1,act)
+            loss1=self.loss_function(fn_loss,self.h[lay-1],y1,mom)
+            self.forward_pass(x_val,act)
+            loss2=self.loss_function(fn_loss,self.h[lay-1],y_val,mom)
+            acc1=self.accuracy(x1,y1,act)
+            acc2=self.accuracy(x_val,y_val,act)
+            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            wandb.log(
+                    {
+                        'epoch': i,
+                        'training_loss' : round(loss1,2),
+                        'training_accuracy' : round(acc1,2),
+                        'validation_loss' : round(loss2,2),
+                        'validation_accuracy':round(acc2,2)
+                    }
+                )
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Loss : "+str(loss1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validation Loss : "+str(loss2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Accurcy : "+str(acc1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validaion Accuracy: "+str(acc2))
+
+    #Function to implement nestrov gradient descent
+
+    def nestrov(self,x1,y1,classes,lay,epo,count,size,eta,act,fn_loss,mom):
+        info,res=self.createBatches(x1,y1,size)
+
+        alpha,beta=[],[]
+
+        i=0
+        while i<lay:
+            b=np.zeros((self.b[i].shape))
+            a=np.zeros((self.w[i].shape))
+            beta.append(b)
+            alpha.append(a)
+            i+=1
+
+        i=0
+        while i< epo:
+            j=0
+            while j< len(info):
+                k=0
+                while k < lay:
+                    self.b[k]-=eta*beta[k]
+                    self.w[k]-=eta*alpha[k]
+                    k+=1
+                self.onePass(info[j],res[j],classes,lay,count,act,fn_loss,mom)
+                k=0
+                while k<lay:
+                    s=lay-1-k
+                    alpha[k]=(eta*alpha[k])+count*(self.wd[s])
+                    beta[k]=(eta*beta[k])+count*self.bd[s]
+                    self.b[k]-=beta[k]
+                    self.w[k]-=alpha[k]
+                    k+=1
+                j+=1
+            i+=1
+
+            self.forward_pass(x1,act)
+            s=lay-1
+            loss1=self.loss_function(fn_loss,self.h[s],y1,mom)
+            self.forward_pass(x_val,act)
+            loss2=self.loss_function(fn_loss,self.h[s],y_val,mom)
+            acc1=self.accuracy(x1,y1,act)
+            acc2=self.accuracy(x_val,y_val,act)
+            # wandb.log({"train_accuracy":acc_train*100,"train_error":loss_train,"val_accuracy":acc_val*100,"val_error":loss_val})
+            wandb.log(
+                    {
+                        'epoch': i,
+                        'training_loss' : round(loss1,2),
+                        'training_accuracy' : round(acc1,2),
+                        'validation_loss' : round(loss2,2),
+                        'validation_accuracy':round(acc2,2)
+                    }
+                )
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Loss : "+str(loss1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validation Loss : "+str(loss2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Accurcy : "+str(acc1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validaion Accuracy: "+str(acc2))
+
+    #Function to implement rmsProp gradient descent
