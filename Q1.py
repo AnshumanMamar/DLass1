@@ -270,7 +270,7 @@ class NeuralNetwork:
             i+=1
 
         #confusion matrix
-        labels=['T-shirt/top','Trouser','Pullover','Dress','Coat','Sandal','Shirt','Sneaker','Bag','Ankle boot']
+        # labels=['T-shirt/top','Trouser','Pullover','Dress','Coat','Sandal','Shirt','Sneaker','Bag','Ankle boot']
         # wandb.log({"my_conf_mat_id" : wandb.plot.confusion_matrix(preds=ypred, y_true=y_test,class_names=labels)})
         acc=((x2.shape[0]-n)/y2.shape[0])*100
         print("Test Accuracy: "+str(acc))
@@ -467,3 +467,258 @@ class NeuralNetwork:
             # print(" Validaion Accuracy: "+str(acc2))
 
     #Function to implement rmsProp gradient descent
+
+
+
+    def rmsProp(self,x1,y1,classes,lay,epo,count,size,eta,act,fn_loss,mom,e):
+        info,res=self.createBatches(x1,y1,size)
+
+        alpha,beta=[],[]
+
+        i=0
+        while i< lay:
+            b=np.zeros((self.b[i].shape))
+            a=np.zeros((self.w[i].shape))
+            beta.append(b)
+            alpha.append(a)
+            i+=1
+
+        i=0
+        while i < int(epo):
+            j=0
+            while j < len(info):
+                self.onePass(info[j],res[j],classes,lay,count,act,fn_loss,mom)
+                k=0
+                while k < lay:
+                    s=lay-1-k
+                    q=1-eta
+                    alpha[k]=(alpha[k]*eta)+(q)*np.square(self.wd[s])
+                    beta[k]=(beta[k]*eta)+(q)*np.square(self.bd[s])
+                    self.w[k]-=(count/np.sqrt(np.linalg.norm(alpha[k]+e)))*self.wd[s]
+                    self.b[k]-=(count/np.sqrt(np.linalg.norm(beta[k]+e)))*self.bd[s]
+                    k+=1
+                j+=1
+            i+=1
+
+            self.forward_pass(x1,act)
+            s=lay-1
+            loss1=self.loss_function(fn_loss,self.h[s],y1,mom)
+            self.forward_pass(x_val,act)
+            loss2=self.loss_function(fn_loss,self.h[s],y_val,mom)
+            acc1=self.accuracy(x1,y1,act)
+            acc2=self.accuracy(x_val,y_val,act)
+            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            wandb.log(
+                    {
+                        'epoch': i,
+                        'training_loss' : round(loss1,2),
+                        'training_accuracy' : round(acc1,2),
+                        'validation_loss' : round(loss2,2),
+                        'validation_accuracy':round(acc2,2)
+                    }
+                )
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Loss : "+str(loss1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validation Loss : "+str(loss2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Accurcy : "+str(acc1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validaion Accuracy: "+str(acc2))
+
+    #Function to implement adam gradient descent
+
+    def adam(self,x1,y1,classes,lay,epo,count,size,eta1,eta2,act,fn_loss,e,mom):
+        info,res=self.createBatches(x1,y1,size)
+
+        w1,w2,b1,b2=[],[],[],[]
+
+        i=0
+        while i< lay:
+            b=np.zeros((self.w[i].shape))
+            a=np.zeros((self.w[i].shape))
+            w2.append(b)
+            w1.append(a)
+            b=np.zeros((self.b[i].shape))
+            a=np.zeros((self.b[i].shape))
+            b1.append(a)
+            b2.append(b)
+            i+=1
+
+        a=0
+        i = 0
+        while i < int(epo):
+            j=0
+            while j< len(info):
+                a=a+1
+                self.onePass(info[j],res[j],classes,lay,count,act,fn_loss,mom)
+                k=0
+                while k< lay:
+                    r=1-eta1
+                    p=1-eta2
+                    u=1-eta1**a
+                    v=1-eta2**a
+                    s=lay-1-k
+
+                    w1[k]=(w1[k]*eta1)+(r)*self.wd[s]
+                    mwhat=w1[k]/(u)
+
+                    w2[k]=(w2[k]*eta2)+(p)*np.square(self.wd[s])
+                    vwhat=w2[k]/(v)
+
+                    b1[k]=(b1[k]*eta1)+(r)*self.bd[s]
+                    mbhat=b1[k]/(u)
+
+                    b2[k]=(b2[k]*eta2)+(p)*np.square(self.bd[s])
+                    vbhat=b2[k]/(v)
+
+                    self.w[k]-=(count/np.sqrt(vwhat+e))*mwhat
+                    self.b[k]-=(count/np.sqrt(vbhat+e))*mbhat
+                    k+=1
+                j+=1
+            i=i+1
+            self.forward_pass(x1, act)
+            s=lay-1
+            loss1=self.loss_function(fn_loss,self.h[s],y1,mom)
+            self.forward_pass(x_val,act)
+            loss2=self.loss_function(fn_loss,self.h[s],y_val,mom)
+            acc1=self.accuracy(x1,y1,act)
+            acc2=self.accuracy(x_val,y_val,act)
+            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            wandb.log(
+                    {
+                        'epoch': i,
+                        'training_loss' : round(loss1,2),
+                        'training_accuracy' : round(acc1,2),
+                        'validation_loss' : round(loss2,2),
+                        'validation_accuracy':round(acc2,2)
+                    }
+                )
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Loss : "+str(loss1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validation Loss : "+str(loss2))
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Accurcy : "+str(acc1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validaion Accuracy: "+str(acc2))
+
+    #Function to implement Nadam Gradient descent
+
+    def Nadam(self,x1,y1,classes,lay,epo,count,size,eta1,eta2,act,fn_loss,e,mom):
+        w1,w2,b1,b2=[],[],[],[]
+        info,res=self.createBatches(x1,y1,size)
+
+        for i in range(lay):
+            b=np.zeros((self.w[i].shape))
+            a=np.zeros((self.w[i].shape))
+            w2.append(b)
+            w1.append(a)
+            b=np.zeros((self.b[i].shape))
+            a=np.zeros((self.b[i].shape))
+            b1.append(a)
+            b2.append(b)
+
+        a=0
+        i=0
+        while i< int(epo):
+            j=0
+            while j< len(info):
+                a=a+1
+                self.onePass(info[j],res[j],classes,lay,count,act,fn_loss,mom)
+                k=0
+                while k < lay:
+                    r=1-eta1
+                    p=1-eta2
+                    u=1-eta1**a
+                    v=1-eta2**a
+                    s=lay-1-k
+                    w1[k]=(w1[k]*eta1)+(r)*self.wd[s]
+                    mwhat=w1[k]/(u)
+
+                    w2[k]=(w2[k]*eta2)+(p)*np.square(self.wd[s])
+                    vwhat=w2[k]/(v)
+
+                    b1[k]=(b1[k]*eta1)+(r)*self.bd[s]
+                    mbhat=b1[k]/(u)
+
+                    b2[k]=(b2[k]*eta2)+(p)*np.square(self.bd[s])
+                    vbhat=b2[k]/(v)
+
+                    self.w[k]-=(count/np.sqrt(vwhat+e))*(eta1*mwhat+(((r)*self.wd[s])/(u)))
+                    self.b[k]-=(count/np.sqrt(vbhat+e))*(eta1*mbhat+(((r)*self.bd[s])/(u)))
+                    k=k+1
+                j=j+1
+            i=i+1
+            self.forward_pass(x1,act)
+            s=lay-1
+            loss1=self.loss_function(fn_loss ,self.h[s],y1,mom)
+            self.forward_pass(x_val ,act)
+            loss2=self.loss_function(fn_loss,self.h[s], y_val,mom)
+            acc1=self.accuracy(x1 ,y1 ,act)
+            acc2=self.accuracy(x_val ,y_val,act)
+            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            wandb.log(
+                    {
+                        'epoch': i,
+                        'training_loss' : round(loss1,2),
+                        'training_accuracy' : round(acc1,2),
+                        'validation_loss' : round(loss2,2),
+                        'validation_accuracy':round(acc2,2)
+                    }
+                )
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Loss : "+str(loss1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validation Loss : "+str(loss2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Accurcy : "+str(acc1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validaion Accuracy: "+str(acc2))
+
+
+    #Main Function to implement the functionality
+
+    def architecture(self,x1,y1,x2,y2,classes,hiddenlayers,neuron,input_neuron,batch,initialization,fn_loss,activation,optimizer,n,iter,beta,beta1,beta2,e,alpha,mom):
+        self.w,self.b=[],[]
+        self.make_layers(hiddenlayers,neuron,input_neuron,initialization,classes)
+        # print(len(self.w),"arch")
+        if optimizer=="batch":
+            self.batch(x1,y1,classes,len(self.w),iter,n,batch,activation,fn_loss,alpha)
+        elif optimizer=='momentum':
+            self.momentum(x1,y1,classes,len(self.w),iter,n,batch,mom,activation,fn_loss,alpha)
+        elif optimizer=='nestrov':
+            self.nestrov(x1,y1,classes,len(self.w),iter,n,batch,beta,activation,fn_loss,alpha)
+        elif optimizer=='rmsProp':
+            self.rmsProp(x1,y1,classes,len(self.w),iter,n,batch,beta,activation,fn_loss,alpha,e)
+        elif optimizer=='adam':
+            self.adam(x1,y1,classes,len(self.w),iter,n,batch,beta1,beta2,activation,fn_loss,e,alpha)
+        elif optimizer=='Nadam':
+            self.Nadam(x1,y1,classes,len(self.w),iter,n,batch,beta1,beta2,activation,fn_loss,e,alpha)
+
+#creating the object and calling
+
+
+obj=NeuralNetwork()
+obj.architecture(x1,
+                 y1,
+                 x_val,
+                 y_val,
+                 classes=10,
+                 hiddenlayers=5,
+                 neuron=128,
+                 input_neuron=784,
+                 batch=64,
+                 initialization="xavier",
+                 fn_loss="cross_entropy",
+                 activation="relu",
+                 optimizer="adam",
+                 n=0.001,
+                 iter=10,
+                 beta=0.5,
+                 beta1=0.999,
+                 beta2=0.999,
+                 e=1e-6,
+                 alpha=0,
+                 mom=0.9)
+obj.predict(x2,y2,act="relu")
