@@ -1,33 +1,37 @@
-# x_train=None
-# x_test=None
-# y_train=None
-# y_test=None
+!pip install wandb
 
-#Loading the dataset
-# if dataset=="fashion_mnist":
-# from keras.datasets import fashion_mnist
-(x1, y1), (x2, y2) = fashion_mnist.load_data()
-# elif dataset=="mnist":
-#     from keras.datasets import mnist
-#     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-
-#Reshaping and normalizing the dataset
-x1=x1.reshape(x1.shape[0],(x1.shape[1]*x1.shape[2]))
-x2=x2.reshape(x2.shape[0],(x2.shape[1]*x2.shape[2]))
-x2=x2/255
-x1=x1/255
+# Import necessary libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from keras.datasets import fashion_mnist
+from keras.datasets import mnist
+import wandb
+from sklearn.model_selection import train_test_split
+import math
 
 
-#create validation dataset
+!wandb login f63b589f2c31fd6562d752168e172d22870ab562
+
+
+
+dataset = 'fashion_mnist'
+if dataset == 'fashion_mnist':
+  (x1, y1), (x2, y2) = fashion_mnist.load_data()
+elif dataset== 'mnist':
+  (x1, y1), (x2, y2) = mnist.load_data()
+
+x1=x1.reshape(x1.shape[0],-1) / 255
+x2=x2.reshape(x2.shape[0],-1)/ 255
+
 x1, x_val, y1, y_val = train_test_split(x1,y1, test_size=0.1, random_state=0)
 wandb.init(project="DL-Assignment-1")
 
 class NeuralNetwork:
     def __init__(self):
+
         self.w,self.b,self.a,self.h,self.wd,self.ad,self.hd,self.bd=[],[],[],[],[],[],[],[]
 
 
-    #collection of all the activation function implementation
 
     def activations(self,act,k):
         if act=='sigmoid':
@@ -51,12 +55,12 @@ class NeuralNetwork:
                 while j< k.shape[1]:
                     add+=np.exp(k[i][j]-k[i][largi])
                     j=j+1
-                k[i]=np.exp(k[i]-k[i][largi])/add
+                s=k[i]-k[i][largi]
+                k[i]=np.exp(s)/add
                 x[i]=k[i]
                 i=i+1
             return x
 
-    #collection of all the activation function derivative
 
     def activations_derivative(self,act,k):
         if act=='sigmoid':
@@ -75,7 +79,6 @@ class NeuralNetwork:
         if act == 'identity':
             return 1
 
-    #collection of all the loss function implementation
 
     def loss_function(self,fn_loss,yhat,y1,mom):
         cac=0
@@ -94,20 +97,20 @@ class NeuralNetwork:
                 loss=loss-((np.log2(yhat[i][y1[i]])))
                 i=i+1
             s=loss+cac
-            return s/y1.shape[0]
+            z=y1.shape[0]
+            return s/z
 
-        if fn_loss=='mean_square':
+        elif fn_loss=='mean_square':
             bl=np.zeros((y1.shape[0],yhat.shape[1]))
             i=0
             while i<y1.shape[0]:
                 bl[i][y1[i]]=1
                 i=i+1
             s=(np.sum(((yhat-bl)**2)))+cac
-            return s/(y1.shape[0])
+            t=y1.shape[0]
+            return s/t
 
-    #make layer function is used to implement the two initialization of weight initialization i.e xavier and random
 
-        # self.make_layers(no_of_hidden_layers,no_of_neuron,input_neuron,initialization,no_of_classes)
 
     def make_layers(self,hidden_layers,neuron,neuron_input,start,classes):
 
@@ -123,6 +126,7 @@ class NeuralNetwork:
         # all_layer = [784,128,,,,,10]
         if start=='random':
             i =0
+
             while i <= hidden_layers:
                 wt=np.random.uniform(-0.5,0.5,(all_layer[i],all_layer[i+1]))
                 b=np.random.uniform(-0.5,0.5,(1,all_layer[i+1]))
@@ -138,43 +142,38 @@ class NeuralNetwork:
                 self.b.append(b)
                 self.w.append(wt)
                 i=i+1
-    #collection of the forward pass of feed forward neural network
 
     def forward_pass(self,x,act):
 
-        check=x
         self.a,self.h=[],[]
-        tp=act
+        check=x
         i=0
         while i<len(self.w)-1:
-            a1=np.add(np.matmul(check,self.w[i]),self.b[i])
+            q1=np.add(np.matmul(check,self.w[i]),self.b[i])
             bool = act=='relu' and i==0
             if (bool):
                 j=0
-                s=a1.shape[0]
+                s=q1.shape[0]
                 while j < s:
-                    maxi=np.argmax(a1[j])
-                    a1[j]/=a1[j][maxi]
+                    maxi=np.argmax(q1[j])
+                    q1[j]/=q1[j][maxi]
                     j=j+1
-            h1=self.activations(act,a1)
-            check=h1
-            self.h.append(h1)
-            self.a.append(a1)
+            r1=self.activations(act,q1)
+            check=r1
+            self.h.append(r1)
+            self.a.append(q1)
             i=i+1
         # print(len(self.w)-1,"check")
-        a1=np.add(np.matmul(check,self.w[len(self.w)-1]),self.b[len(self.w)-1])
-        h1=self.activations('softmax',a1)
-        self.h.append(h1)
-        self.a.append(a1)
+        z=len(self.w)-1
+        q1=np.add(np.matmul(check,self.w[z]),self.b[z])
+        r1=self.activations('softmax',q1)
+        self.h.append(r1)
+        self.a.append(q1)
 
 
-    #implementation of the backward propagation algorithm. The derivative is calculated based on the loss function
 
     def backward_pass(self,yhat,y1,x1,classes,activation,fn_loss,mom):
         self.wd,self.bd,self.ad,self.hd=[],[],[],[]
-        # self.bd=[]
-        # self.ad=[]
-        # self.hd=[]
         bl=0
         bl=np.zeros((y1.shape[0],classes))
         i=0
@@ -199,7 +198,7 @@ class NeuralNetwork:
             self.hd.append(a)
             self.ad.append(b)
 
-        if fn_loss=="mean_square":
+        elif fn_loss=="mean_square":
             s=yhat-bl
             a=2*s
             self.hd.append(a)
@@ -240,10 +239,11 @@ class NeuralNetwork:
             self.wd.append(w)
             j=j-1
         i=0
+
         while i< len(self.w):
-            self.wd[len(self.w)-1-i]-=mom*self.w[i]
+            s=len(self.w)-1-i
+            self.wd[s]-=mom*self.w[i]
             i=i+1
-    #Function to calculate accuracy of the dataset
 
     def accuracy(self,x2,y2,act):
         self.forward_pass(x2,act)
@@ -257,7 +257,6 @@ class NeuralNetwork:
             i+=1
         return ((x2.shape[0]-n)/y2.shape[0])*100
 
-    #This function is used to make the final prediction on the test data
 
     def predict(self,x2,y2,act):
         self.forward_pass(x2,act)
@@ -275,7 +274,6 @@ class NeuralNetwork:
         acc=((x2.shape[0]-n)/y2.shape[0])*100
         print("Test Accuracy: "+str(acc))
 
-    #Function to create the batches out of the original data
 
     def createBatches(self,x1,y1,size):
         info,res=[],[]
@@ -297,16 +295,15 @@ class NeuralNetwork:
             i+=1
         return info,res
 
-    #function to implement one combination of the forward and backward pass
 
     def onePass(self,x1,y1,classes,lay,rate,act,fn_loss,mom):
         self.forward_pass(x1 ,act)
 
         self.backward_pass(self.h[lay-1], y1,x1,classes, act,fn_loss,mom)
 
-    #Function to implement stochastic gradient descent
 
-    def batch(self,x1,y1,classes,lay,epo,count,size,act,fn_ans,mom):
+    def batch(self,x1,y1,lay,epo,count,size,act,fn_ans,mom):
+        classes=10
         info,res=self.createBatches(x1,y1,size)
 
         i=0
@@ -331,7 +328,7 @@ class NeuralNetwork:
             loss2=self.loss_function(fn_ans,self.h[lay-1],y_val,mom)
             acc1=self.accuracy(x1,y1,act)
             acc2=self.accuracy(x_val,y_val,act)
-            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            
             wandb.log(
                     {
                         'epoch': i,
@@ -341,20 +338,19 @@ class NeuralNetwork:
                         'validation_accuracy':round(acc2,2)
                     }
                 )
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Train Loss : "+str(loss1))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Validation Loss : "+str(loss2))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Train Accurcy : "+str(acc1))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Validaion Accuracy: "+str(acc2))
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Loss : "+str(loss1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validation Loss : "+str(loss2))
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Accurcy : "+str(acc1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validaion Accuracy: "+str(acc2))
 
-    #Function to implement momentum based gradient descent
 
-    def momentum(self,x1,y1,classes,lay,epo,count,size,eta,act,fn_loss,mom):
+    def momentum(self,x1,y1,lay,epo,count,size,eta,act,fn_loss,mom):
         info,res=self.createBatches(x1,y1,size)
-
+        classes=10
         alpha,beta=[],[]
         i=0
         while i< lay:
@@ -385,7 +381,7 @@ class NeuralNetwork:
             loss2=self.loss_function(fn_loss,self.h[lay-1],y_val,mom)
             acc1=self.accuracy(x1,y1,act)
             acc2=self.accuracy(x_val,y_val,act)
-            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
+            
             wandb.log(
                     {
                         'epoch': i,
@@ -395,18 +391,18 @@ class NeuralNetwork:
                         'validation_accuracy':round(acc2,2)
                     }
                 )
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Train Loss : "+str(loss1))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Validation Loss : "+str(loss2))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Train Accurcy : "+str(acc1))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Validaion Accuracy: "+str(acc2))
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Loss : "+str(loss1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validation Loss : "+str(loss2))
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Accurcy : "+str(acc1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validaion Accuracy: "+str(acc2))
 
-    #Function to implement nestrov gradient descent
 
-    def nestrov(self,x1,y1,classes,lay,epo,count,size,eta,act,fn_loss,mom):
+    def nestrov(self,x1,y1,lay,epo,count,size,eta,act,fn_loss,mom):
+        classes=10
         info,res=self.createBatches(x1,y1,size)
 
         alpha,beta=[],[]
@@ -447,7 +443,6 @@ class NeuralNetwork:
             loss2=self.loss_function(fn_loss,self.h[s],y_val,mom)
             acc1=self.accuracy(x1,y1,act)
             acc2=self.accuracy(x_val,y_val,act)
-            # wandb.log({"train_accuracy":acc_train*100,"train_error":loss_train,"val_accuracy":acc_val*100,"val_error":loss_val})
             wandb.log(
                     {
                         'epoch': i,
@@ -457,22 +452,21 @@ class NeuralNetwork:
                         'validation_accuracy':round(acc2,2)
                     }
                 )
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Train Loss : "+str(loss1))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Validation Loss : "+str(loss2))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Train Accurcy : "+str(acc1))
-            # print("Iteration Number: "+str(i), end="")
-            # print(" Validaion Accuracy: "+str(acc2))
-
-    #Function to implement rmsProp gradient descent
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Loss : "+str(loss1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validation Loss : "+str(loss2))
+            print("Iteration Number: "+str(i), end="")
+            print(" Train Accurcy : "+str(acc1))
+            print("Iteration Number: "+str(i), end="")
+            print(" Validaion Accuracy: "+str(acc2))
 
 
 
-    def rmsProp(self,x1,y1,classes,lay,epo,count,size,eta,act,fn_loss,mom,e):
+
+    def rmsProp(self,x1,y1,lay,epo,count,size,eta,act,fn_loss,mom,e):
         info,res=self.createBatches(x1,y1,size)
-
+        classes =10
         alpha,beta=[],[]
 
         i=0
@@ -507,7 +501,6 @@ class NeuralNetwork:
             loss2=self.loss_function(fn_loss,self.h[s],y_val,mom)
             acc1=self.accuracy(x1,y1,act)
             acc2=self.accuracy(x_val,y_val,act)
-            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
             wandb.log(
                     {
                         'epoch': i,
@@ -526,11 +519,10 @@ class NeuralNetwork:
             # print("Iteration Number: "+str(i), end="")
             # print(" Validaion Accuracy: "+str(acc2))
 
-    #Function to implement adam gradient descent
 
-    def adam(self,x1,y1,classes,lay,epo,count,size,eta1,eta2,act,fn_loss,e,mom):
+    def adam(self,x1,y1,lay,epo,count,size,eta1,eta2,act,fn_loss,e,mom):
         info,res=self.createBatches(x1,y1,size)
-
+        classes=10
         w1,w2,b1,b2=[],[],[],[]
 
         i=0
@@ -584,7 +576,6 @@ class NeuralNetwork:
             loss2=self.loss_function(fn_loss,self.h[s],y_val,mom)
             acc1=self.accuracy(x1,y1,act)
             acc2=self.accuracy(x_val,y_val,act)
-            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
             wandb.log(
                     {
                         'epoch': i,
@@ -594,18 +585,18 @@ class NeuralNetwork:
                         'validation_accuracy':round(acc2,2)
                     }
                 )
-            print("Iteration Number: "+str(i), end="")
-            print(" Train Loss : "+str(loss1))
-            print("Iteration Number: "+str(i), end="")
-            print(" Validation Loss : "+str(loss2))
-            print("Iteration Number: "+str(i), end="")
-            print(" Train Accurcy : "+str(acc1))
-            print("Iteration Number: "+str(i), end="")
-            print(" Validaion Accuracy: "+str(acc2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Loss : "+str(loss1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validation Loss : "+str(loss2))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Train Accurcy : "+str(acc1))
+            # print("Iteration Number: "+str(i), end="")
+            # print(" Validaion Accuracy: "+str(acc2))
 
-    #Function to implement Nadam Gradient descent
 
-    def Nadam(self,x1,y1,classes,lay,epo,count,size,eta1,eta2,act,fn_loss,e,mom):
+    def Nadam(self,x1,y1,lay,epo,count,size,eta1,eta2,act,fn_loss,e,mom):
+        classes=10
         w1,w2,b1,b2=[],[],[],[]
         info,res=self.createBatches(x1,y1,size)
 
@@ -657,7 +648,6 @@ class NeuralNetwork:
             loss2=self.loss_function(fn_loss,self.h[s], y_val,mom)
             acc1=self.accuracy(x1 ,y1 ,act)
             acc2=self.accuracy(x_val ,y_val,act)
-            # wandb.log({"train_accuracy":acc_train,"train_error":loss_train,"val_accuracy":acc_val,"val_error":loss_val})
             wandb.log(
                     {
                         'epoch': i,
@@ -677,26 +667,24 @@ class NeuralNetwork:
             # print(" Validaion Accuracy: "+str(acc2))
 
 
-    #Main Function to implement the functionality
 
-    def architecture(self,x1,y1,x2,y2,classes,hiddenlayers,neuron,input_neuron,batch,initialization,fn_loss,activation,optimizer,n,iter,beta,beta1,beta2,e,alpha,mom):
+    def architecture(self,x1,y1,x2,y2,hiddenlayers,neuron,input_neuron,batch,initialization,fn_loss,activation,optimizer,n,iter,beta,beta1,beta2,e,alpha,mom):
         self.w,self.b=[],[]
-        self.make_layers(hiddenlayers,neuron,input_neuron,initialization,classes)
+        self.make_layers(hiddenlayers,neuron,input_neuron,initialization,10)
         # print(len(self.w),"arch")
         if optimizer=="batch":
-            self.batch(x1,y1,classes,len(self.w),iter,n,batch,activation,fn_loss,alpha)
+            self.batch(x1,y1,len(self.w),iter,n,batch,activation,fn_loss,alpha)
         elif optimizer=='momentum':
-            self.momentum(x1,y1,classes,len(self.w),iter,n,batch,mom,activation,fn_loss,alpha)
+            self.momentum(x1,y1,len(self.w),iter,n,batch,mom,activation,fn_loss,alpha)
         elif optimizer=='nestrov':
-            self.nestrov(x1,y1,classes,len(self.w),iter,n,batch,beta,activation,fn_loss,alpha)
+            self.nestrov(x1,y1,len(self.w),iter,n,batch,beta,activation,fn_loss,alpha)
         elif optimizer=='rmsProp':
-            self.rmsProp(x1,y1,classes,len(self.w),iter,n,batch,beta,activation,fn_loss,alpha,e)
+            self.rmsProp(x1,y1,len(self.w),iter,n,batch,beta,activation,fn_loss,alpha,e)
         elif optimizer=='adam':
-            self.adam(x1,y1,classes,len(self.w),iter,n,batch,beta1,beta2,activation,fn_loss,e,alpha)
+            self.adam(x1,y1,len(self.w),iter,n,batch,beta1,beta2,activation,fn_loss,e,alpha)
         elif optimizer=='Nadam':
-            self.Nadam(x1,y1,classes,len(self.w),iter,n,batch,beta1,beta2,activation,fn_loss,e,alpha)
+            self.Nadam(x1,y1,len(self.w),iter,n,batch,beta1,beta2,activation,fn_loss,e,alpha)
 
-#creating the object and calling
 
 
 obj=NeuralNetwork()
@@ -704,21 +692,100 @@ obj.architecture(x1,
                  y1,
                  x_val,
                  y_val,
-                 classes=10,
-                 hiddenlayers=5,
+                 hiddenlayers=3,
                  neuron=128,
                  input_neuron=784,
-                 batch=64,
+                 batch=32,
                  initialization="xavier",
-                 fn_loss="cross_entropy",
-                 activation="relu",
-                 optimizer="adam",
+                 fn_loss="mean_square",
+                 activation="tanh",
+                 optimizer="Nadam",
                  n=0.001,
-                 iter=10,
-                 beta=0.5,
+                 iter=3,
+                 beta=0.9,
                  beta1=0.999,
                  beta2=0.999,
-                 e=1e-6,
+                 e=1e-8,
                  alpha=0,
                  mom=0.9)
-obj.predict(x2,y2,act="relu")
+obj.predict(x2,y2,act="tanh")
+
+
+
+sweep_config = {
+            'name': 'sweep 2 : ce vs mse',
+            'method': 'grid',
+            'metric': { 'goal': 'maximize','name': 'Accuracy'},
+            'parameters':
+                {
+                    # 'dataset' : {'values': ['fashion_mnist']}, # 'fashion_mnist', 'mnist'
+                    'iter' : {'values': [10]},
+                    'batch' : {'values': [64]},
+                    'fn_loss' : {'values': ['cross_entropy', 'mean_square']}, # 'mean_squared_error', 'cross_entropy'
+                    'optimizer' : {'values': ['batch', 'momentum', 'nestrov', 'rmsProp', 'adam', 'Nadam']}, # 'sgd', 'momentum', 'nag', 'rmsprop', 'adam', 'nadam'
+                    'n' : {'values': [1e-3, 1e-4]},
+                    'mom' : {'values': [0.9]},
+                    'beta' : {'values': [0.9]},
+                    'beta1' : {'values': [0.999]},
+                    'beta2' : {'values': [0.999]},
+                    'e' : {'values': [1e-6]},
+                    'alpha' : {'values': [0]},
+                    'initialization' : {'values': ['xavier']}, # 'random', 'Xavier'
+                    'hiddenlayers' : {'values': [4, 5]},
+                    'neuron' : {'values': [32, 64]},
+                    'activation' : {'values': ['tanh', 'relu']}, # 'identity', 'sigmoid', 'tanh', 'ReLU'
+                    'outAct' : {'values': ['softmax']}
+                }
+            }
+
+
+
+def train():
+
+    init = wandb.init(project='DL-Assignment-1')
+    config = init.config
+    wandb.run.name = (
+        'o:' + config.optimizer +
+        '_a:' + config.activation +
+        '_ep:' + str(config.iter) +
+        '_l:' + config.fn_loss +
+        '_i:' + config.initialization +
+        '_hl:' + str(config.hiddenlayers) +
+        '_hls:' + str(config.neuron)
+    )
+    obj=NeuralNetwork()
+    obj.architecture(x1,
+                    y1,
+                    x_val,
+                    y_val,
+                    
+                    classes=10,
+                    hiddenlayers=config.hiddenlayers,
+                    neuron=config.neuron,
+                    input_neuron=784,
+                    batch=config.batch,
+                    initialization=config.initialization,
+                    fn_loss=config.fn_loss,
+                    activation=config.activation,
+                    optimizer=config.optimizer,
+                    n=config.n,
+                    iter=config.iter,
+                    beta=config.beta,
+                    beta1=config.beta1,
+                    beta2=config.beta2,
+                    e=config.e,
+                    alpha=config.alpha,
+                    mom=config.mom)
+
+    val_acc = obj.accuracy(x_val,y_val,config.activation)
+    wandb.log({'Accuracy': val_acc})
+
+
+
+
+sweep_id = wandb.sweep(sweep_config, project='DL-Assignment-1')
+wandb.agent(sweep_id, train, count = 300)
+wandb.finish()
+
+
+
